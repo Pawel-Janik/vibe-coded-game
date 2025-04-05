@@ -18,10 +18,60 @@
             font-size: 24px;
             z-index: 100;
         }
+        #lives {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #00ff00;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            z-index: 100;
+        }
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+        }
+        #gameOver h1 {
+            color: #ff4444;
+            font-family: Arial, sans-serif;
+            margin-bottom: 20px;
+        }
+        #finalScore {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #restartButton {
+            background: #00ff00;
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #restartButton:hover {
+            background: #00cc00;
+        }
     </style>
 </head>
 <body>
     <div id="score">Score: <span id="scoreValue">0</span></div>
+    <div id="lives">Lives: <span id="livesValue">3</span></div>
+    <div id="gameOver">
+        <h1>You Lost!</h1>
+        <div id="finalScore">Final Score: <span id="finalScoreValue">0</span></div>
+        <button id="restartButton">Try Again</button>
+    </div>
     <script type="module" src="/main.js"></script>
 </body>
 </html>
