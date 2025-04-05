@@ -156,9 +156,6 @@ const starsMaterial = new THREE.PointsMaterial({
 const starField = new THREE.Points(starsGeometry, starsMaterial);
 scene.add(starField);
 
-// Game state
-let gameOverState = false;
-
 // Player movement
 const keys = {
     left: false,
@@ -367,18 +364,11 @@ function handlePlayerHit() {
     livesElement.textContent = lives;
     
     if (lives <= 0) {
-        gameOverState = true;
+        gameOver = true;
         player.visible = false;
         createFinalExplosion(player.position.clone());
         return true;
     }
-    
-    // Give temporary invulnerability
-    player.visible = false;
-    setTimeout(() => {
-        resetPlayerPosition();
-        player.visible = true;
-    }, 1000);
     
     return false;
 }
@@ -494,9 +484,9 @@ function animate() {
     requestAnimationFrame(animate);
 
     // Only update game logic if not game over or final explosion is still playing
-    if (!gameOverState || finalExplosionActive) {
+    if (!gameOver || finalExplosionActive) {
         // Handle shooting
-        if (!gameOverState) {
+        if (!gameOver) {
             handleShooting();
 
             // Create new obstacles
@@ -517,7 +507,7 @@ function animate() {
                 continue;
             }
 
-            if (!gameOverState) {
+            if (!gameOver) {
                 // Check collisions with enemies
                 for (let j = obstacles.length - 1; j >= 0; j--) {
                     const enemy = obstacles[j];
@@ -548,7 +538,7 @@ function animate() {
             }
 
             // Check collision with player
-            if (!gameOverState && checkProjectileCollision(projectile, player) && player.visible) {
+            if (!gameOver && checkProjectileCollision(projectile, player) && player.visible) {
                 scene.remove(projectile);
                 enemyProjectiles.splice(i, 1);
                 if (handlePlayerHit()) continue;
@@ -556,7 +546,7 @@ function animate() {
         }
 
         // Player movement
-        if (!gameOverState) {
+        if (!gameOver) {
             if (keys.left && player.position.x > -10) player.position.x -= playerSpeed;
             if (keys.right && player.position.x < 10) player.position.x += playerSpeed;
             if (keys.up && player.position.y < 5) player.position.y += playerSpeed;
@@ -585,7 +575,7 @@ function animate() {
         starField.geometry.attributes.position.needsUpdate = true;
 
         // Update obstacles
-        if (!gameOverState) {
+        if (!gameOver) {
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obstacle = obstacles[i];
                 
@@ -660,7 +650,8 @@ window.addEventListener('resize', () => {
 function initGame() {
     score = 0;
     lives = 3;
-    gameOverState = false;
+    gameOver = false;
+    finalExplosionActive = false;
     scoreElement.textContent = score;
     livesElement.textContent = lives;
     gameOverScreen.style.display = 'none';
@@ -682,6 +673,17 @@ function initGame() {
     // Reset player
     resetPlayerPosition();
     player.visible = true;
+    
+    // Reset game speed and difficulty
+    enemySpeed = 0.05;  // Reset enemy speed
+    projectileSpeed = 1.0;  // Reset projectile speed
+    
+    // Reset shooting cooldown
+    canShoot = true;
+    shootCooldown = 250;  // Reset shooting cooldown
+    
+    // Reset all timers and intervals
+    lastSpeedIncrease = Date.now();
 }
 
 // Add event listener for restart button
