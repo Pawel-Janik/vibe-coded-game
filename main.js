@@ -165,6 +165,82 @@ const keys = {
     shoot: false
 };
 
+// Accelerometer controls
+let useAccelerometer = false;
+let acceleration = {
+    x: 0,
+    y: 0
+};
+
+// Touch controls for shooting
+let lastTapTime = 0;
+const doubleTapDelay = 300; // Delay in ms to detect double taps
+
+// Handle touch events for shooting
+window.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Prevent default touch behaviors
+    
+    const currentTime = Date.now();
+    if (currentTime - lastTapTime < doubleTapDelay) {
+        // Double tap detected, don't trigger shoot
+        return;
+    }
+    lastTapTime = currentTime;
+    
+    if (canShoot && !gameOver) {
+        keys.shoot = true;
+        setTimeout(() => {
+            keys.shoot = false;
+        }, 100); // Reset shoot key after a short delay
+    }
+}, { passive: false });
+
+// Check if device has accelerometer and request permission
+if (window.DeviceOrientationEvent) {
+    // Request permission for iOS 13+ devices
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        document.body.addEventListener('click', async () => {
+            try {
+                const permission = await DeviceOrientationEvent.requestPermission();
+                if (permission === 'granted') {
+                    useAccelerometer = true;
+                    window.addEventListener('deviceorientation', handleOrientation);
+                }
+            } catch (error) {
+                console.error('Error requesting device orientation permission:', error);
+            }
+        }, { once: true });
+    } else {
+        // For non-iOS devices, wait for the first orientation event
+        window.addEventListener('deviceorientation', function initOrientation(event) {
+            // Only enable if we actually get orientation data
+            if (event.gamma !== null && event.beta !== null) {
+                useAccelerometer = true;
+                handleOrientation(event);
+            }
+            // Remove this init listener
+            window.removeEventListener('deviceorientation', initOrientation);
+            // Add the regular listener if we got valid data
+            if (useAccelerometer) {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+        }, { once: true });
+    }
+}
+
+// Handle device orientation
+function handleOrientation(event) {
+    // gamma is the left-to-right tilt in degrees, with right being positive
+    acceleration.x = event.gamma / 45; // Normalize to range -1 to 1
+    // beta is the front-to-back tilt in degrees, with front being positive
+    acceleration.y = (event.beta - 45) / 45; // Normalize to range -1 to 1, subtract 45 to make the neutral position when phone is tilted
+    
+    // Clamp values between -1 and 1
+    acceleration.x = Math.max(-1, Math.min(1, acceleration.x));
+    acceleration.y = Math.max(-1, Math.min(1, acceleration.y));
+}
+
+// Keyboard controls
 window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') keys.left = true;
     if (e.key === 'ArrowRight') keys.right = true;
@@ -546,19 +622,45 @@ function animate() {
         }
 
         // Player movement
-        if (!gameOver) {
-            if (keys.left && player.position.x > -10) player.position.x -= playerSpeed;
-            if (keys.right && player.position.x < 10) player.position.x += playerSpeed;
-            if (keys.up && player.position.y < 5) player.position.y += playerSpeed;
-            if (keys.down && player.position.y > -5) player.position.y -= playerSpeed;
+        if (!gameOver && player.visible) {
+            const moveSpeed = playerSpeed;
+            let xMovement = 0;
+            let yMovement = 0;
 
-            // Add tilt when moving
-            const targetRollTilt = keys.left ? 0.3 : (keys.right ? -0.3 : 0);  // Roll (z-axis)
-            const targetPitchTilt = keys.up ? -0.3 : (keys.down ? 0.3 : 0);    // Pitch (x-axis)
-            
-            // Smooth rotation transitions
-            player.rotation.z += (targetRollTilt - player.rotation.z) * 0.1;
-            player.rotation.x += (targetPitchTilt - player.rotation.x) * 0.1;
+            if (useAccelerometer) {
+                // Use accelerometer values for movement
+                xMovement = acceleration.x * moveSpeed;
+                yMovement = -acceleration.y * moveSpeed; // Invert Y for intuitive control
+            } else {
+                // Use keyboard controls
+                if (keys.left) xMovement = -moveSpeed;
+                if (keys.right) xMovement = moveSpeed;
+                if (keys.up) yMovement = moveSpeed;
+                if (keys.down) yMovement = -moveSpeed;
+            }
+
+            // Apply movement
+            player.position.x += xMovement;
+            player.position.y += yMovement;
+
+            // Constrain to game bounds
+            player.position.x = Math.max(-10, Math.min(10, player.position.x));
+            player.position.y = Math.max(-5, Math.min(5, player.position.y));
+
+            // Apply tilt based on movement
+            const targetRoll = -xMovement * 10;
+            player.rotation.z = THREE.MathUtils.lerp(
+                player.rotation.z,
+                THREE.MathUtils.clamp(targetRoll, -maxTilt, maxTilt),
+                tiltSpeed
+            );
+
+            const targetPitch = yMovement * (maxTilt / 2);
+            player.rotation.x = THREE.MathUtils.lerp(
+                player.rotation.x,
+                THREE.MathUtils.clamp(targetPitch, -maxTilt/2, maxTilt/2),
+                tiltSpeed
+            );
         }
 
         // Move starfield for additional motion effect
